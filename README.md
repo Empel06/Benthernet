@@ -1,64 +1,58 @@
-# Benternet Project – Netwerk Programming
+# Benternet Project – Network Programming
 
-## Inleiding
+## Introduction
 
-Dit project is onderdeel van het vak *Netwerk Programming* en maakt gebruik van **Benternet**: een publish-subscribe architectuur gebaseerd op **ZMQ (ZeroMQ)** sockets in C++. De bedoeling is om een nuttige, werkende service te ontwikkelen die correct communiceert over het Benternet-netwerk.
+This project is part of the course *Network Programming* and uses **Benternet**: a publish-subscribe architecture based on **ZMQ (ZeroMQ)** sockets in C++. The goal is to develop a useful, working service that communicates correctly over the Benternet network.
 
-**Push socket**: `tcp://benternet.pxl-ea-ict.be:24041`  
+**Push socket**: `tcp://benternet.pxl-ea-ict.be:24041`
 **Sub socket**: `tcp://benternet.pxl-ea-ict.be:24042`
 
-## Doel van het project
+## Project goal
 
-Het bouwen van een dienst (service) die:
-- Subscribed op specifieke berichten via Benternet
-- Logisch en correct reageert op binnenkomende berichten
-- Potentieel ook andere services aanspreekt
-- Nuttig is voor andere gebruikers binnen het Benternet-ecosysteem
+Building a service that:
+- Subscribes to specific messages via Benternet
+- Logically and correctly responds to incoming messages
+- Potentially also addresses other services
+- Is useful for other users within the Benternet ecosystem
 
-## Functionaliteit
+## Functionality
 
-De ontwikkelde service kan:
-- Subscriben op specifieke topics met string filtering
-- Berichten parsen op basis van parameters
-- Gepaste reacties terugsturen afhankelijk van input
-- Meerdere berichten tegelijkertijd verwerken (meerdere topics)
-- Mogelijke fouten detecteren en gepaste feedback geven
+The developed service can:
+- Subscribe to specific topics with string filtering
+- Parse messages based on parameters
+- Return appropriate responses depending on input
+- Process multiple messages simultaneously (multiple topics)
+- Detect possible errors and provide appropriate feedback
 
-## Technische details
+## Technical details
 
-- **Taal**: C++
-- **Bibliotheek**: ZMQ (ZeroMQ)
-- **Communicatie**:
-  - `PUSH` via `tcp://benternet.pxl-ea-ict.be:24041`
-  - `SUB` via `tcp://benternet.pxl-ea-ict.be:24042`
-- **Berichtenstructuur**: Consistente en logische structuur met eenvoudige filtering en parsing van parameters
-- **Topics**: De service handelt meerdere topics parallel af
+- **Language**: C++
+- **Library**: ZMQ (ZeroMQ)
+- **Communication**: 
+- `PUSH` via `tcp://benternet.pxl-ea-ict.be:24041` 
+- `SUB` via `tcp://benternet.pxl-ea-ict.be:24042`
+- **Message structure**: Consistent and logical structure with easy filtering and parsing of parameters
+- **Topics**: The service handles multiple topics in parallel
 
-## Voorbeeldberichten
+## Additional Documentation
 
-**Inkomend (SUB)**:
+- [Client Documentation](./client.md) - Explains how the client connects to the server, sends messages via the **PUSH** socket, and receives responses through the **SUB** socket.
+- [Service Documentation](./service.md) - Describes how the server operates, processes client requests, and generates and sends random basketball match data.
+
+
+## Usage
+
+1. Clone this repository
+2. Compile with `g++` and link the ZMQ library:
+```bash
+g++ CodeName.cpp -o CodeName.exe -IC:\msys64\mingw64\include -LC:\msys64\mingw64\lib -lzmq
 ```
-service/request/name:temperature/location:lab1
+3. Start the service:
+```bash
+./CodeName
 ```
 
-**Uitgaand (PUSH)**:
-```
-service/response/temperature/location:lab1/value:21.5
-```
+or
 
-## Gebruik
-
-1. Clone deze repository
-2. Compileer met `g++` en link de ZMQ-bibliotheek:
-   ```bash
-   g++ CodeName.cpp -o CodeName.exe -IC:\msys64\mingw64\include -LC:\msys64\mingw64\lib -lzmq
-   ```
-3. Start de service:
-   ```bash
-   ./benternet_service
-   ```
-
-   or
-
-   ```bash
-   CodeName.exe
+```bash
+CodeName.exe
