@@ -1,18 +1,38 @@
 #include <string>
 #include <iostream>
 #include <zmq.hpp>
-#include <unordered_set>
+#include <vector>
+#include <cstdlib>
+#include <ctime>
 
-// Helperfunctie om naam uit het bericht te halen
-std::string extract_name(const std::string& message) {
-    // Verwacht formaat: service>subcounter?>[NAAM]>
-    std::size_t pos = message.find("?>");
-    if (pos != std::string::npos) {
-        std::string part = message.substr(pos + 2);
-        std::size_t end = part.find(">");
-        return part.substr(0, end);
+// Struct om een basketbalwedstrijd te representeren
+struct BasketbalWedstrijd {
+    std::string team1;
+    std::string team2;
+    int score1;
+    int score2;
+};
+
+// Lijst met EuroLeague teams
+const std::vector<std::string> teams = {
+    "Real Madrid", "FC Barcelona", "Olympiacos", "Panathinaikos", "Fenerbahce",
+    "Anadolu Efes", "CSKA Moscow", "Maccabi Tel Aviv", "Baskonia", "Virtus Bologna",
+    "Zalgiris Kaunas", "AS Monaco", "Partizan Belgrade", "Bayern Munich", "Alba Berlin",
+    "Valencia Basket", "Crvena Zvezda", "LDLC ASVEL"
+};
+
+// Genereer een willekeurige basketbalwedstrijd
+BasketbalWedstrijd genereerWedstrijd() {
+    std::srand(std::time(nullptr));
+    BasketbalWedstrijd wedstrijd;
+    wedstrijd.team1 = teams[std::rand() % teams.size()];
+    wedstrijd.team2 = teams[std::rand() % teams.size()];
+    while (wedstrijd.team1 == wedstrijd.team2) {
+        wedstrijd.team2 = teams[std::rand() % teams.size()];
     }
-    return "";
+    wedstrijd.score1 = std::rand() % 100;
+    wedstrijd.score2 = std::rand() % 100;
+    return wedstrijd;
 }
 
 int main() {
@@ -26,38 +46,28 @@ int main() {
     zmq::socket_t sub_socket{context, zmq::socket_type::sub};
     sub_socket.connect("tcp://benternet.pxl-ea-ict.be:24042");
 
-    // Luister op topic "service>subcounter?>"
-    std::string topic = "service>subcounter?>";
+    // Luister op topic "service>basketbal?>"
+    std::string topic = "service>basketbal?>";
     sub_socket.setsockopt(ZMQ_SUBSCRIBE, topic.c_str(), topic.length());
 
-    std::cout << "Service actief: wacht op subscribers..." << std::endl;
-
-    int subscriber_count = 0;
-    std::unordered_set<std::string> geregistreerde_namen;
+    std::cout << "Basketbalwedstrijd-service actief..." << std::endl;
 
     while (true) {
         zmq::message_t request;
         sub_socket.recv(request, zmq::recv_flags::none);
 
         std::string bericht = request.to_string();
-        std::string naam = extract_name(bericht);
+        std::cout << "Verzoek ontvangen: " << bericht << std::endl;
 
-        if (naam.empty()) {
-            std::cerr << "Ongeldig bericht ontvangen: " << bericht << std::endl;
-            continue;
-        }
-
-        if (geregistreerde_namen.find(naam) == geregistreerde_namen.end()) {
-            // Nieuwe subscriber
-            geregistreerde_namen.insert(naam);
-            subscriber_count++;
-        }
+        // Genereer een willekeurige basketbalwedstrijd
+        BasketbalWedstrijd wedstrijd = genereerWedstrijd();
 
         // Antwoordbericht opbouwen
-        std::string antwoord = "service>subcounter!>" + naam + ">je bent subscriber nummer: " + std::to_string(subscriber_count) + ">";
+        std::string antwoord = "service>basketbal!>" + wedstrijd.team1 + " " + std::to_string(wedstrijd.score1) + " - " +
+                                std::to_string(wedstrijd.score2) + " " + wedstrijd.team2 + ">";
         push_socket.send(zmq::buffer(antwoord), zmq::send_flags::none);
 
-        std::cout << "Nieuwe subscriber: " << naam << " (#" << subscriber_count << ")" << std::endl;
+        std::cout << "Wedstrijd verstuurd: " << antwoord << std::endl;
     }
 
     return 0;
