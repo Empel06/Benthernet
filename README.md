@@ -36,8 +36,8 @@ The developed service can:
 
 ## Additional Documentation
 
-- [Client Documentation](../Client/Client.md) - Explains how the client connects to the server, sends messages via the **PUSH** socket, and receives responses through the **SUB** socket.
-- [Service Documentation](../Service/Service.md) - Describes how the server operates, processes client requests, and generates and sends random basketball match data.
+- [Client Documentation](https://github.com/Empel06/Benthernet/blob/main/Client/Client.md) - Explains how the client connects to the server, sends messages via the **PUSH** socket, and receives responses through the **SUB** socket.
+- [Service Documentation](https://github.com/Empel06/Benthernet/blob/main/Service/Service.md) - Describes how the server operates, processes client requests, and generates and sends random basketball match data.
 
 ## Usage
 
