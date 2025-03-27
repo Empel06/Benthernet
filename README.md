@@ -36,8 +36,8 @@ The developed service can:
 
 ## Additional Documentation
 
-- [Client Documentation](./client.md) - Explains how the client connects to the server, sends messages via the **PUSH** socket, and receives responses through the **SUB** socket.
-- [Service Documentation](./service.md) - Describes how the server operates, processes client requests, and generates and sends random basketball match data.
+- [Client Documentation](./Client.md) - Explains how the client connects to the server, sends messages via the **PUSH** socket, and receives responses through the **SUB** socket.
+- [Service Documentation](./Service.md) - Describes how the server operates, processes client requests, and generates and sends random basketball match data.
 
 
 ## Usage
