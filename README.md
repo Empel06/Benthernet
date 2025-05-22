@@ -1,7 +1,7 @@
 
 # BasketbalArena Project - Eén gecombineerde service met GUI-client
 
-Welkom bij **BasketbalArena**! Dit project bevat een client in Python met GUI (Tkinter) en een service in C++ die samen twee minigames beheren: BasketbalGame en BasketbalMachine. Communicatie verloopt via ZeroMQ.
+Welkom bij **BasketbalArena**! Dit project bevat een Python GUI-client en een C++ backendservice die samen twee minigames beheren: BasketbalGame en BasketbalMachine. De communicatie verloopt via ZeroMQ en maakt gebruik van het Benternet-netwerk.
 
 ---
 
@@ -64,12 +64,12 @@ Alle communicatie gebeurt via **ZeroMQ**:
 - SUB (service -> client): Antwoorden en updates (incl. leaderboard).
 
 Berichtstructuur:
-```mermaid
-%% Berichten naar services
+```
+Berichten naar services:
 Emiel --> BasketbalGame : ?Naam>Gok>
 Emiel --> BasketbalMachine : ?Naam>Team>
 
-%% Berichten van services
+Berichten van services:
 BasketbalGame --> Emiel : !Naam>Resultaat>
 BasketbalMachine --> Emiel : !Naam>Resultaat>
 Leaderboard --> Emiel : !naam1:score1|naam2:score2|...
