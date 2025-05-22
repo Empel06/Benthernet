@@ -12,40 +12,46 @@ class CoinLandClient:
         self.name = ""
         self.context = zmq.Context()
 
-        # Sockets
+        self.root.configure(bg="#001f4d")
+
         self.push_socket = self.context.socket(zmq.PUSH)
         self.push_socket.connect(SERVER_PUSH_ADDR)
 
         self.sub_socket = self.context.socket(zmq.SUB)
         self.sub_socket.connect(SERVER_SUB_ADDR)
-        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "Emiel>Leaderboard!>")  # Leaderboard subscriben
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "Emiel>Leaderboard!>")
 
-        self.leaderboard_data = []  # Om leaderboard info lokaal bij te houden
+        self.leaderboard_data = []
 
         self.build_gui()
-
-        # Start response polling
         self.root.after(100, self.poll_response)
 
     def build_gui(self):
-        tk.Label(self.root, text="Spelersnaam:").pack()
-        self.name_entry = tk.Entry(self.root)
-        self.name_entry.pack()
+        tk.Label(self.root, text="Spelersnaam:", font=("Segoe UI", 12), fg="white", bg="#001f4d").pack(pady=(10,0))
+        self.name_entry = tk.Entry(self.root, font=("Segoe UI", 12), bg="#d9d9d9")
+        self.name_entry.pack(pady=(0,10), ipadx=5, ipady=5)
 
-        # BasketbalGame
-        tk.Label(self.root, text="Gooi een getal (1-10) voor de BasketbalGame:").pack()
-        self.guess_entry = tk.Entry(self.root)
-        self.guess_entry.pack()
-        tk.Button(self.root, text="Speel BasketbalGame", command=self.play_basketbal_game).pack(pady=5)
+        tk.Label(self.root, text="Gooi een getal (1-10) voor de BasketbalGame:", font=("Segoe UI", 11), fg="white", bg="#001f4d").pack()
+        self.guess_entry = tk.Entry(self.root, font=("Segoe UI", 12), bg="#d9d9d9")
+        self.guess_entry.pack(pady=(0,10), ipadx=5, ipady=5)
 
-        # SlotMachine
-        tk.Button(self.root, text="Speel SlotMachine", command=self.play_slot_machine).pack(pady=5)
+        button_style = {
+            "font": ("Segoe UI", 12, "bold"),
+            "bg": "#d9d9d9",
+            "fg": "black",
+            "activebackground": "#c0c0c0",
+            "activeforeground": "black",
+            "relief": "raised",
+            "bd": 2,
+            "width": 20
+        }
 
-        # Leaderboard knop
-        tk.Button(self.root, text="Toon Leaderboard", command=self.show_leaderboard_popup).pack(pady=10)
+        tk.Button(self.root, text="Speel BasketbalGame", command=self.play_basketbal_game, **button_style).pack(pady=5)
+        tk.Button(self.root, text="Speel SlotMachine", command=self.play_slot_machine, **button_style).pack(pady=5)
+        tk.Button(self.root, text="Toon Leaderboard", command=self.show_leaderboard_popup, **button_style).pack(pady=15)
 
-        self.output_box = tk.Text(self.root, height=12, state="disabled")
-        self.output_box.pack(pady=10)
+        self.output_box = tk.Text(self.root, height=12, font=("Consolas", 11), bg="#d9d9d9")
+        self.output_box.pack(padx=10, pady=10, fill="both", expand=True)
 
     def play_basketbal_game(self):
         self.name = self.name_entry.get().strip()
@@ -96,11 +102,9 @@ class CoinLandClient:
         self.output_box.config(state="disabled")
 
     def update_leaderboard(self, msg):
-        # Parse leaderboard string: "Emiel>Leaderboard!>speler1:score|speler2:score|..."
-        leaderboard_data = msg.split(">", 2)[2]  # alles na 'Emiel>Leaderboard!>'
+        leaderboard_data = msg.split(">", 2)[2]
         spelers = leaderboard_data.strip("|").split("|")
 
-        # Lijst opslaan voor gebruik in popup
         self.leaderboard_data = []
         for speler_info in spelers:
             if ":" in speler_info:
@@ -111,23 +115,21 @@ class CoinLandClient:
                 except ValueError:
                     pass
 
-        # Sorteer descending op score (voor zekerheid)
         self.leaderboard_data.sort(key=lambda x: x[1], reverse=True)
 
-        # Update popup als die open is
         if hasattr(self, "leaderboard_popup") and self.leaderboard_popup.winfo_exists():
             self.refresh_leaderboard_popup()
 
     def show_leaderboard_popup(self):
         if hasattr(self, "leaderboard_popup") and self.leaderboard_popup.winfo_exists():
-            # Al open? Breng naar voren
             self.leaderboard_popup.lift()
             return
 
         self.leaderboard_popup = tk.Toplevel(self.root)
         self.leaderboard_popup.title("Leaderboard")
 
-        self.leaderboard_text = tk.Text(self.leaderboard_popup, height=15, width=40, state="disabled", font=("Consolas", 12))
+        self.leaderboard_text = tk.Text(self.leaderboard_popup, height=15, width=40, state="disabled",
+                                        font=("Consolas", 12))
         self.leaderboard_text.pack(padx=10, pady=10)
 
         self.refresh_leaderboard_popup()
@@ -136,7 +138,6 @@ class CoinLandClient:
         self.leaderboard_text.config(state="normal")
         self.leaderboard_text.delete("1.0", tk.END)
 
-        # Toon alle spelers met positie, en markeer jezelf vetgedrukt
         your_name = self.name_entry.get().strip()
         if not your_name:
             your_name = None
