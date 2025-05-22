@@ -1,51 +1,97 @@
 # Client Documentation
 
 ## Overview
-This documentation describes the functionality of the client application for playing the BasketbalGame and SlotMachine over Benternet using ZeroMQ.
 
-## How-to Build
+Deze documentatie beschrijft de functionaliteit van de clientapplicatie voor het spelen van de **BasketbalGame** en de **BasketbalMachine** via **Benternet** met gebruik van **ZeroMQ** en een **Tkinter GUI**.
 
-### Requirements
-- Python 3
-- pyzmq library
-- tkinter (for GUI)
+## Vereisten
+
+* Python 3
+* `pyzmq` bibliotheek (`pip install pyzmq`)
+* `tkinter` (standaard in Python op de meeste systemen)
 
 ## Network Overview
-The client connects to the Benternet ZeroMQ endpoints:
 
-- PUSH socket sends requests on port `24041`.
-- SUB socket receives responses on port `24042`.
+De client maakt verbinding met de Benternet ZeroMQ-endpoints:
 
-## Functionality
+* **PUSH socket** stuurt berichten naar de server via poort `24041`.
+* **SUB socket** ontvangt berichten van de server via poort `24042`.
 
-- The client subscribes to leaderboard and personal response topics.
-- The client allows the user to enter their name and a guess number for the BasketbalGame.
-- The client can initiate a slot machine spin if the player has enough points.
-- Responses and leaderboard updates are shown in a GUI.
+## Functionaliteit
 
-## Using the Client
+* Gebruikers kunnen:
 
-1. Enter your player name.
-2. Enter a guess (1-10) for the BasketbalGame and press "Speel BasketbalGame".
-3. Press "Speel SlotMachine" to spin the basketball-themed slot machine (requires ≥ 2 points).
-4. Press "Toon Leaderboard" to view the current player rankings.
+  * Een naam invoeren.
+  * Een krachtgetal tussen 1 en 10 invoeren en meespelen in de **BasketbalGame**.
+  * Een team kiezen ("Lakers" of "Celtics") en gokken op de winnaar in de **BasketbalMachine** (vereist 2 punten).
+  * Het actuele leaderboard opvragen en bekijken.
 
-## Communication Protocol
+* De client abonneert zich op de volgende topics:
 
-### Requests
-- BasketbalGame guess: `Emiel>BasketbalGame?>PlayerName>Guess>`
-- Slot machine spin: `Emiel>BasketbalMachine?>PlayerName>`
+  * `Emiel>BasketbalGame!>Naam>`
+  * `Emiel>BasketbalMachine!>Naam>`
+  * `Emiel>Leaderboard!>`
 
-### Responses
-- BasketbalGame results: `Emiel>BasketbalGame!>PlayerName>...`
-- Slot machine results: `Emiel>BasketbalMachine!>PlayerName>...`
-- Leaderboard updates: `Emiel>Leaderboard!>Player1:Score|Player2:Score|...`
+* Alle serverresponses worden weergegeven in de GUI. De leaderboard-popup toont een gesorteerde scorelijst.
 
-## Example Output
+## GUI Overzicht
+
+* **Spelerinvoer:** naamveld
+* **BasketbalGame:** getalinvoer (1–10) + knop "Speel BasketbalGame"
+* **BasketbalMachine:** teaminvoer + knop "Speel BasketbalMachine"
+* **Leaderboard:** knop "Toon Leaderboard"
+* **Output Box:** toont serverreacties en status
+
+## Berichtenstructuur
+
+### Verzoeken (van client naar server)
+
+* BasketbalGame:
+
+  ```
+  Emiel>BasketbalGame?>Naam>Kracht>
+  ```
+* BasketbalMachine:
+
+  ```
+  Emiel>BasketbalMachine?>Naam>Team>
+  ```
+
+### Antwoorden (van server naar client)
+
+* BasketbalGame:
+
+  ```
+  Emiel>BasketbalGame!>Naam>Resultaattekst
+  ```
+* BasketbalMachine:
+
+  ```
+  Emiel>BasketbalMachine!>Naam>Wedstrijd: Team1 Score - Team2 Score. ...
+  ```
+* Leaderboard:
+
+  ```
+  Emiel>Leaderboard!>Naam1:Score1|Naam2:Score2|...
+  ```
+
+## Voorbeeldoutput
+
 ```
-[BasketbalGame] Gok verzonden...
-[SlotMachine] Draai gestart...
+[BasketbalGame] Gok verzonden voor Alice met getal 7...
+[BasketbalMachine] Wedstrijd gok verzonden voor Bob op team Celtics...
+
 Emiel>BasketbalGame!>Alice>Score! Je hebt een punt gescoord. Totaal: 5 punten.
-Emiel>BasketbalMachine!>Alice>Spin: DRIBBLE - PASS - PASS => 🔥 Net play! Je wint 3 punten! (-2 inzet, +3 winst). Totaal: 6 punten.
-Emiel>Leaderboard!>Alice:6|Bob:4|Charlie:3
+Emiel>BasketbalMachine!>Bob>Wedstrijd: Lakers 102 - Celtics 97. Je gokte correct! +5 punten. Totaal: 8 punten.
+Emiel>Leaderboard!>Alice:5|Bob:8|Charlie:3
 ```
+
+## Opstarten
+
+Voer de client uit met:
+
+```bash
+python client.py
+```
+
+Een grafische interface zal openen waarin gebruikers kunnen spelen en scores volgen.
