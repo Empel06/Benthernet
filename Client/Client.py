@@ -8,20 +8,23 @@ SERVER_SUB_ADDR = "tcp://benternet.pxl-ea-ict.be:24042"
 class CoinLandClient:
     def __init__(self, root):
         self.root = root
-        self.root.title("CoinLand Client - BasketbalGame & SlotMachine")
+        self.root.title("Emiel's BasketbalGame & BasketbalMachine")
         self.name = ""
         self.context = zmq.Context()
 
         self.root.configure(bg="#001f4d")
 
+        # Push socket voor het sturen van commands
         self.push_socket = self.context.socket(zmq.PUSH)
         self.push_socket.connect(SERVER_PUSH_ADDR)
 
+        # Sub socket voor het ontvangen van berichten
         self.sub_socket = self.context.socket(zmq.SUB)
         self.sub_socket.connect(SERVER_SUB_ADDR)
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "Emiel>Leaderboard!>")
 
         self.leaderboard_data = []
+        self.subscribed_names = set()
 
         self.build_gui()
         self.root.after(100, self.poll_response)
@@ -31,9 +34,17 @@ class CoinLandClient:
         self.name_entry = tk.Entry(self.root, font=("Segoe UI", 12), bg="#d9d9d9")
         self.name_entry.pack(pady=(0,10), ipadx=5, ipady=5)
 
+        # BasketbalGame invoer
         tk.Label(self.root, text="Gooi een getal (1-10) voor de BasketbalGame:", font=("Segoe UI", 11), fg="white", bg="#001f4d").pack()
         self.guess_entry = tk.Entry(self.root, font=("Segoe UI", 12), bg="#d9d9d9")
         self.guess_entry.pack(pady=(0,10), ipadx=5, ipady=5)
+
+        # BasketbalMachine team gok invoer
+        tk.Label(self.root, text="Gok het winnende team voor BasketbalMachine:", font=("Segoe UI", 11), fg="white", bg="#001f4d").pack()
+        self.team_guess_entry = tk.Entry(self.root, font=("Segoe UI", 12), bg="#d9d9d9")
+        self.team_guess_entry.pack(pady=(0,10), ipadx=5, ipady=5)
+        tk.Label(self.root, text="Teams: Lakers, Celtics",
+                 font=("Segoe UI", 9), fg="white", bg="#001f4d").pack(pady=(0,10))
 
         button_style = {
             "font": ("Segoe UI", 12, "bold"),
@@ -43,45 +54,67 @@ class CoinLandClient:
             "activeforeground": "black",
             "relief": "raised",
             "bd": 2,
-            "width": 20
+            "width": 25
         }
 
         tk.Button(self.root, text="Speel BasketbalGame", command=self.play_basketbal_game, **button_style).pack(pady=5)
-        tk.Button(self.root, text="Speel SlotMachine", command=self.play_slot_machine, **button_style).pack(pady=5)
+        tk.Button(self.root, text="Speel BasketbalMachine", command=self.play_basketbal_machine, **button_style).pack(pady=5)
         tk.Button(self.root, text="Toon Leaderboard", command=self.show_leaderboard_popup, **button_style).pack(pady=15)
 
-        self.output_box = tk.Text(self.root, height=12, font=("Consolas", 11), bg="#d9d9d9")
+        self.output_box = tk.Text(self.root, height=12, font=("Consolas", 11), bg="#d9d9d9", state="disabled")
         self.output_box.pack(padx=10, pady=10, fill="both", expand=True)
 
+    def subscribe_to_name_topics(self, name):
+        # Subscribe 1x per naam voor BasketbalGame en BasketbalMachine antwoorden
+        if name in self.subscribed_names:
+            return
+        game_topic = f"Emiel>BasketbalGame!>{name}>"
+        machine_topic = f"Emiel>BasketbalMachine!>{name}>"
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, game_topic)
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, machine_topic)
+        self.subscribed_names.add(name)
+
     def play_basketbal_game(self):
-        self.name = self.name_entry.get().strip()
+        naam = self.name_entry.get().strip()
         guess = self.guess_entry.get().strip()
-        if not self.name or not guess.isdigit():
+        if not naam or not guess.isdigit():
             messagebox.showerror("Fout", "Vul een geldige naam en getal in.")
             return
         if not (1 <= int(guess) <= 10):
             messagebox.showerror("Fout", "Getal moet tussen 1 en 10 liggen.")
             return
 
-        topic = f"Emiel>BasketbalGame!>{self.name}>"
-        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, topic)
+        self.name = naam
+        self.subscribe_to_name_topics(self.name)
 
+        # Bericht naar de service sturen (met kracht)
         message = f"Emiel>BasketbalGame?>{self.name}>{guess}>"
         self.push_socket.send_string(message)
-        self.output(f"[BasketbalGame] Gok verzonden...")
+        self.output(f"[BasketbalGame] Gok verzonden voor {self.name} met getal {guess}...")
 
-    def play_slot_machine(self):
-        self.name = self.name_entry.get().strip()
-        if not self.name:
+    def play_basketbal_machine(self):
+        naam = self.name_entry.get().strip()
+        gok_team = self.team_guess_entry.get().strip()
+        if not naam:
             messagebox.showerror("Fout", "Voer een geldige naam in.")
             return
+        if not gok_team:
+            messagebox.showerror("Fout", "Voer een geldig gokteam in.")
+            return
 
-        topic = f"Emiel>BasketbalMachine!>{self.name}>"
-        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, topic)
+        # Check team naam op geldigheid (optioneel)
+        valid_teams = {"Lakers", "Celtics"}
+        if gok_team not in valid_teams:
+            messagebox.showerror("Fout", f"Ongeldig team. Kies uit: {', '.join(valid_teams)}")
+            return
 
-        message = f"Emiel>BasketbalMachine?>{self.name}>"
+        self.name = naam
+        self.subscribe_to_name_topics(self.name)
+
+        # Bericht naar de service sturen (met naam + gokteam)
+        message = f"Emiel>BasketbalMachine?>{self.name}>{gok_team}>"
         self.push_socket.send_string(message)
-        self.output(f"[SlotMachine] Draai gestart...")
+        self.output(f"[BasketbalMachine] Wedstrijd gok verzonden voor {self.name} op team {gok_team}...")
 
     def poll_response(self):
         try:
@@ -90,7 +123,9 @@ class CoinLandClient:
                 if msg.startswith("Emiel>Leaderboard!>"):
                     self.update_leaderboard(msg)
                 else:
-                    self.output(msg)
+                    # Toon alleen berichten die bedoeld zijn voor deze speler
+                    if self.name and (f">{self.name}>" in msg):
+                        self.output(msg)
         except zmq.Again:
             pass
         self.root.after(100, self.poll_response)
@@ -102,6 +137,7 @@ class CoinLandClient:
         self.output_box.config(state="disabled")
 
     def update_leaderboard(self, msg):
+        # msg heeft formaat: Emiel>Leaderboard!>naam1:score1|naam2:score2|...
         leaderboard_data = msg.split(">", 2)[2]
         spelers = leaderboard_data.strip("|").split("|")
 
