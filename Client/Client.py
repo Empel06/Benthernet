@@ -11,22 +11,27 @@ class CoinLandClient:
         self.root.title("Emiel's BasketbalGame & BasketbalMachine")
         self.name = ""
         self.context = zmq.Context()
-
+        self.hoogste_score_ooit = ("", 0)
+        
         self.root.configure(bg="#001f4d")
 
-        # Push socket voor het sturen van commands
+        # PUSH socket voor verzenden
         self.push_socket = self.context.socket(zmq.PUSH)
         self.push_socket.connect(SERVER_PUSH_ADDR)
 
-        # Sub socket voor het ontvangen van berichten
+        # SUB socket voor ontvangen
         self.sub_socket = self.context.socket(zmq.SUB)
         self.sub_socket.connect(SERVER_SUB_ADDR)
+        # Subscribe naar leaderboard en op naam basis
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "Emiel>Leaderboard!>")
 
         self.leaderboard_data = []
         self.subscribed_names = set()
 
         self.build_gui()
+        
+        self.double_button.config(state="disabled")  # Disabled by default
+
         self.root.after(100, self.poll_response)
 
     def build_gui(self):
@@ -34,17 +39,14 @@ class CoinLandClient:
         self.name_entry = tk.Entry(self.root, font=("Segoe UI", 12), bg="#d9d9d9")
         self.name_entry.pack(pady=(0,10), ipadx=5, ipady=5)
 
-        # BasketbalGame invoer
         tk.Label(self.root, text="Gooi een getal (1-10) voor de BasketbalGame:", font=("Segoe UI", 11), fg="white", bg="#001f4d").pack()
         self.guess_entry = tk.Entry(self.root, font=("Segoe UI", 12), bg="#d9d9d9")
         self.guess_entry.pack(pady=(0,10), ipadx=5, ipady=5)
 
-        # BasketbalMachine team gok invoer
         tk.Label(self.root, text="Gok het winnende team voor BasketbalMachine:", font=("Segoe UI", 11), fg="white", bg="#001f4d").pack()
         self.team_guess_entry = tk.Entry(self.root, font=("Segoe UI", 12), bg="#d9d9d9")
         self.team_guess_entry.pack(pady=(0,10), ipadx=5, ipady=5)
-        tk.Label(self.root, text="Teams: Lakers, Celtics",
-                 font=("Segoe UI", 9), fg="white", bg="#001f4d").pack(pady=(0,10))
+        tk.Label(self.root, text="Teams: Lakers, Celtics", font=("Segoe UI", 9), fg="white", bg="#001f4d").pack(pady=(0,10))
 
         button_style = {
             "font": ("Segoe UI", 12, "bold"),
@@ -57,6 +59,9 @@ class CoinLandClient:
             "width": 25
         }
 
+        self.double_button = tk.Button(self.root, text="Speel DoubleOrNothing", command=self.play_double_or_nothing, **button_style)
+        self.double_button.pack(pady=5)
+
         tk.Button(self.root, text="Speel BasketbalGame", command=self.play_basketbal_game, **button_style).pack(pady=5)
         tk.Button(self.root, text="Speel BasketbalMachine", command=self.play_basketbal_machine, **button_style).pack(pady=5)
         tk.Button(self.root, text="Toon Leaderboard", command=self.show_leaderboard_popup, **button_style).pack(pady=15)
@@ -65,13 +70,15 @@ class CoinLandClient:
         self.output_box.pack(padx=10, pady=10, fill="both", expand=True)
 
     def subscribe_to_name_topics(self, name):
-        # Subscribe 1x per naam voor BasketbalGame en BasketbalMachine antwoorden
+        # Subscribe alleen als nog niet gedaan
         if name in self.subscribed_names:
             return
         game_topic = f"Emiel>BasketbalGame!>{name}>"
         machine_topic = f"Emiel>BasketbalMachine!>{name}>"
+        double_topic = f"Emiel>DoubleOrNothing!>{name}>"
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, game_topic)
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, machine_topic)
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, double_topic)
         self.subscribed_names.add(name)
 
     def play_basketbal_game(self):
@@ -87,7 +94,6 @@ class CoinLandClient:
         self.name = naam
         self.subscribe_to_name_topics(self.name)
 
-        # Bericht naar de service sturen (met kracht)
         message = f"Emiel>BasketbalGame?>{self.name}>{guess}>"
         self.push_socket.send_string(message)
         self.output(f"[BasketbalGame] Gok verzonden voor {self.name} met getal {guess}...")
@@ -102,7 +108,6 @@ class CoinLandClient:
             messagebox.showerror("Fout", "Voer een geldig gokteam in.")
             return
 
-        # Check team naam op geldigheid (optioneel)
         valid_teams = {"Lakers", "Celtics"}
         if gok_team not in valid_teams:
             messagebox.showerror("Fout", f"Ongeldig team. Kies uit: {', '.join(valid_teams)}")
@@ -111,7 +116,6 @@ class CoinLandClient:
         self.name = naam
         self.subscribe_to_name_topics(self.name)
 
-        # Bericht naar de service sturen (met naam + gokteam)
         message = f"Emiel>BasketbalMachine?>{self.name}>{gok_team}>"
         self.push_socket.send_string(message)
         self.output(f"[BasketbalMachine] Wedstrijd gok verzonden voor {self.name} op team {gok_team}...")
@@ -122,8 +126,11 @@ class CoinLandClient:
                 msg = self.sub_socket.recv_string(flags=zmq.NOBLOCK)
                 if msg.startswith("Emiel>Leaderboard!>"):
                     self.update_leaderboard(msg)
+                    self.update_double_button_state()
+                elif msg.startswith("Emiel>DoubleOrNothing!>"):
+                    self.handle_double_or_nothing_response(msg)
                 else:
-                    # Toon alleen berichten die bedoeld zijn voor deze speler
+                    # Check of bericht voor deze speler is
                     if self.name and (f">{self.name}>" in msg):
                         self.output(msg)
         except zmq.Again:
@@ -137,7 +144,7 @@ class CoinLandClient:
         self.output_box.config(state="disabled")
 
     def update_leaderboard(self, msg):
-        # msg heeft formaat: Emiel>Leaderboard!>naam1:score1|naam2:score2|...
+        # msg = "Emiel>Leaderboard!>naam1:score1|naam2:score2|..."
         leaderboard_data = msg.split(">", 2)[2]
         spelers = leaderboard_data.strip("|").split("|")
 
@@ -148,6 +155,10 @@ class CoinLandClient:
                 try:
                     score = int(score_str)
                     self.leaderboard_data.append((naam, score))
+
+                    if score > self.hoogste_score_ooit[1]:
+                        self.hoogste_score_ooit = (naam, score)
+
                 except ValueError:
                     pass
 
@@ -174,6 +185,10 @@ class CoinLandClient:
         self.leaderboard_text.config(state="normal")
         self.leaderboard_text.delete("1.0", tk.END)
 
+        hoogste_speler, hoogste_score = self.hoogste_score_ooit
+        hoogste_tekst = f"Hoogste score ooit: {hoogste_speler} met {hoogste_score} punten\n\n"
+        self.leaderboard_text.insert(tk.END, hoogste_tekst)
+
         your_name = self.name_entry.get().strip()
         if not your_name:
             your_name = None
@@ -187,6 +202,52 @@ class CoinLandClient:
 
         self.leaderboard_text.tag_config("highlight", font=("Consolas", 12, "bold"))
         self.leaderboard_text.config(state="disabled")
+
+    def play_double_or_nothing(self):
+        naam = self.name_entry.get().strip()
+        if not naam:
+            messagebox.showerror("Fout", "Voer een geldige naam in.")
+            return
+
+        # Score ophalen van de speler
+        speler_score = next((score for n, score in self.leaderboard_data if n == naam), None)
+        if speler_score < 50:
+            messagebox.showerror("Fout", "Je moet minstens 50 punten hebben om DoubleOrNothing te spelen.")
+            return
+
+
+        self.name = naam
+        self.subscribe_to_name_topics(self.name)
+        message = f"Emiel>DoubleOrNothing?>{self.name}>"
+        self.push_socket.send_string(message)
+        self.output(f"[DoubleOrNothing] Speler {self.name} speelt DoubleOrNothing...")
+
+    def handle_double_or_nothing_response(self, msg):
+        # msg formaat: Emiel>DoubleOrNothing!>naam>resultaat>
+        parts = msg.split(">")
+        if len(parts) < 4:
+            return
+        naam = parts[2]
+        resultaat = parts[3]
+        if resultaat == "gewonnen":
+            tekst = f"Gefeliciteerd {naam}, je hebt DoubleOrNothing gewonnen! Je punten zijn verdubbeld."
+        elif resultaat == "verloren":
+            tekst = f"Helaas {naam}, je hebt DoubleOrNothing verloren en je punten zijn teruggezet naar 0."
+        else:
+           tekst = f"DoubleOrNothing bericht ontvangen: {msg}"
+
+        self.output(tekst)
+
+        self.update_double_button_state()
+
+    def update_double_button_state(self):
+        naam = self.name_entry.get().strip()
+        speler_score = next((score for n, score in self.leaderboard_data if n == naam), None)
+        if speler_score and speler_score >= 50:
+            self.double_button.config(state="normal")
+        else:
+            self.double_button.config(state="disabled")
+
 
 
 if __name__ == "__main__":
